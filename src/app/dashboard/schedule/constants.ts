@@ -1,0 +1,3 @@
+export { DAY_START_MINUTE, DAY_END_MINUTE, SLOT_MINUTES, LUNCH_START_MINUTE, LUNCH_END_MINUTE } from "@/lib/constants";
+
+export const PX_PER_MINUTE = 2;

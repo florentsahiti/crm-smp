@@ -1,0 +1,243 @@
+// Prisma schema for LoniCRM — team scheduling & absence planner.
+// Runs on PostgreSQL (Vercel Postgres). Enum-like fields are
+// modelled as String (validated in app code via zod) rather than Prisma
+// `enum` — a holdover from the original SQLite setup.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// role: "employee" | "manager"
+model Employee {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  shortCode    String   @unique
+  role         String
+  // comma-separated skill codes, e.g. "FR,EN,IT"
+  skills       String   @default("")
+  groupNumber  Int?
+  /// Position in the schedule — the old Einsatzplan's order (grouped by language).
+  sortOrder    Int      @default(0)
+  /// Birthday as day + month only — the year (age) is deliberately never stored.
+  birthDay     Int?
+  birthMonth   Int?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  absenceEntries    AbsenceEntry[] @relation("AbsenceEmployee")
+  enteredAbsences   AbsenceEntry[] @relation("AbsenceCreatedBy")
+  shiftBlocks       ShiftBlock[]   @relation("ShiftEmployee")
+  enteredShiftBlocks ShiftBlock[]  @relation("ShiftCreatedBy")
+  leaveRequests     LeaveRequest[] @relation("LeaveEmployee")
+  decidedLeaveRequests LeaveRequest[] @relation("LeaveDecidedBy")
+  notifications     Notification[]
+  swapOffers        SwapRequest[]  @relation("SwapFrom")
+  swapClaims        SwapRequest[]  @relation("SwapTo")
+  decidedSwaps      SwapRequest[]  @relation("SwapDecidedBy")
+  createdEvents     Event[]        @relation("EventCreatedBy")
+  homeOfficeDays    HomeOfficeDay[]
+}
+
+// halfDay: "AM" | "PM" | "FULL"
+// type: "vacation" | "sick" | "training" | "holiday" | "accident" | "military" | "reduced_workload"
+// status: "approved" | "pending" | "rejected"
+model AbsenceEntry {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation("AbsenceEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime
+  halfDay    String
+  type       String
+  status     String   @default("approved")
+  note       String?
+  /// shift blocks removed when the absence was entered from the Einsatzplan — restored when it is cancelled
+  clearedBlocks Json?
+  createdById String
+  createdBy  Employee @relation("AbsenceCreatedBy", fields: [createdById], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, date, halfDay])
+  @@index([employeeId, date])
+}
+
+// dutyType: "ticket_duty" | "meeting" | "coaching" | "case_review" | "tech_issue" | "break" | "training_lock" | "other"
+// location: "HO" | "O"
+model ShiftBlock {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation("ShiftEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  date        DateTime
+  // minutes from midnight, e.g. 480 = 08:00
+  startMinute Int
+  endMinute   Int
+  dutyType    String
+  location    String?
+  note        String?
+  createdById String
+  createdBy   Employee @relation("ShiftCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // true = a suggestion from the auto-scheduler: visible only to managers until published.
+  draft       Boolean  @default(false)
+
+  swapRequests SwapRequest[]
+
+  @@index([employeeId, date])
+  @@index([date])
+}
+
+// halfDay: "AM" | "PM" | "FULL" | null (null = full range across startDate..endDate)
+// type: same vocabulary as AbsenceEntry.type
+// status: "pending" | "approved" | "rejected"
+model LeaveRequest {
+  id            String    @id @default(cuid())
+  employeeId    String
+  employee      Employee  @relation("LeaveEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  startDate     DateTime
+  endDate       DateTime
+  halfDay       String?
+  type          String
+  note          String?
+  status        String    @default("pending")
+  decidedById   String?
+  decidedBy     Employee? @relation("LeaveDecidedBy", fields: [decidedById], references: [id])
+  decidedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+// type: "leave_decided" | "swap_claimed" | "swap_decided" | "schedule_change" | "leave_submitted"
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      Employee @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+// status: "open" (posted, unclaimed) | "claimed" (a colleague wants it, awaiting team-lead approval)
+//         | "approved" (block reassigned) | "rejected" | "cancelled"
+model SwapRequest {
+  id             String     @id @default(cuid())
+  shiftBlockId   String
+  shiftBlock     ShiftBlock @relation(fields: [shiftBlockId], references: [id], onDelete: Cascade)
+  fromEmployeeId String
+  fromEmployee   Employee   @relation("SwapFrom", fields: [fromEmployeeId], references: [id])
+  toEmployeeId   String?
+  toEmployee     Employee?  @relation("SwapTo", fields: [toEmployeeId], references: [id])
+  status         String     @default("open")
+  note           String?
+  decidedById    String?
+  decidedBy      Employee?  @relation("SwapDecidedBy", fields: [decidedById], references: [id])
+  decidedAt      DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([status])
+}
+
+// Daily phone/CRM numbers, imported from the Ferien-plan. One row per calendar day;
+// any field may be null when the sheet had no number for that day.
+model DailyCallStat {
+  id            String   @id @default(cuid())
+  date          DateTime @unique
+  callsReceived Int?
+  callsAnswered Int?
+  crmCompleted  Int?
+  source        String   @default("import")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/// Expected workload a manager enters for a day. `hourly` holds one value per hour
+/// 08–16; empty = split `total` over the hours by the usual daily pattern.
+model ForecastDay {
+  id          String   @id @default(cuid())
+  date        DateTime @unique
+  total       Int
+  /// expected CRM tasks for the day (null = no CRM forecast)
+  crmTotal    Int?
+  hourly      Int[]    @default([])
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Standard forecast per weekday ("Wochenmuster"), used for days without a manual ForecastDay.
+/// weekday: 1 = Monday … 5 = Friday
+model ForecastWeekdayDefault {
+  id          String   @id @default(cuid())
+  weekday     Int      @unique
+  calls       Int
+  crm         Int?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Tasks already completed in one hour of a day (entered by managers during the day).
+/// done = calls handled (Telefonie), crmDone = CRM tasks completed.
+model TaskCount {
+  id          String   @id @default(cuid())
+  date        DateTime
+  hour        Int
+  done        Int?
+  crmDone     Int?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([date, hour])
+}
+
+// Special dates managers add to the Einsatzplan's "Ereignisse" (team meeting, announcement …).
+// Birthdays, holidays and fixed appointments are not stored here — they are derived.
+// type: "event" | "meeting" | "info"
+model Event {
+  id          String   @id @default(cuid())
+  date        DateTime
+  // optional time of day, minutes from midnight
+  startMinute Int?
+  endMinute   Int?
+  title       String
+  type        String
+  note        String?
+  createdById String
+  createdBy   Employee @relation("EventCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+}
+
+/// A day the employee works from home ("HO" in the Einsatzplan). Backoffice days ("BO") are
+/// `backoffice` shift blocks instead, because they change the phone capacity; HO does not.
+model HomeOfficeDay {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date        DateTime
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([date])
+}

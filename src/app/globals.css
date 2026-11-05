@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f5f8;
+  --foreground: #1d1a22;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Accent palette for duty/event colors. -60/-20 are 60% / 20% tints. */
+  --color-tone-red: #ed1b2f;
+  --color-tone-red-20: #fbd1d5;
+  --color-tone-rosa: #ffc1d6;
+  --color-tone-rosa-60: #ffdae6;
+  --color-tone-violet: #9185be;
+  --color-tone-violet-60: #bdb6d8;
+  --color-tone-violet-20: #e9e7f2;
+  --color-tone-wine: #891350;
+  --color-tone-yellow: #fff374;
+  --color-tone-yellow-60: #fff8ac;
+  --color-tone-beige: #ead6c1;
+  --color-tone-beige-60: #f2e6da;
+
+  /* UI accent scale built around Weinrot #891350 (brand-700) */
+  --color-brand-50: #fdf2f7;
+  --color-brand-100: #fbe4ee;
+  --color-brand-200: #f6c8dd;
+  --color-brand-300: #ec9cc0;
+  --color-brand-400: #db629a;
+  --color-brand-500: #c13a7c;
+  --color-brand-600: #a52468;
+  --color-brand-700: #891350;
+  --color-brand-800: #6e1041;
+  --color-brand-900: #580e35;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-zinc-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(29,26,34,0.04),0_4px_16px_-8px_rgba(29,26,34,0.08)];
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold tracking-tight text-zinc-900;
+  }
+
+  .page-subtitle {
+    @apply mt-1 text-sm text-zinc-500;
+  }
+
+  .section-title {
+    @apply mb-3 text-sm font-semibold text-zinc-900;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-700 text-white shadow-sm hover:bg-brand-800;
+  }
+
+  .btn-secondary {
+    @apply btn border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50;
+  }
+
+  .btn-ghost {
+    @apply btn text-zinc-600 hover:bg-zinc-100;
+  }
+
+  .btn-sm {
+    @apply px-2.5 py-1 text-xs;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100 disabled:bg-zinc-50 disabled:text-zinc-400;
+  }
+
+  .label {
+    @apply text-sm font-medium text-zinc-700;
+  }
+
+  .badge {
+    @apply inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+}
