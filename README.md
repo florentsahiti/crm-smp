@@ -1,9 +1,7 @@
 # LoniCRM — Team Scheduling
 
 Replaces the Ferien-/Weiterbildungsplan and Vorlage_Einsatzplan spreadsheets
-with a shared web app. See [`docs/brief.md`](docs/brief.md) for the full
-background and phased roadmap, and [`docs/PROGRESS.md`](docs/PROGRESS.md)
-for what's actually been built so far.
+with a shared web app.
 
 **Phases 1–5 done**: login/roles, the year absence calendar, the day-view
 shift planner (`/dashboard/schedule` — drag to create duty blocks, live
